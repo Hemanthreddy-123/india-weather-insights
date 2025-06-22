@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import WeatherCard from "@/components/WeatherCard";
@@ -9,9 +8,6 @@ import ForecastCard from "@/components/ForecastCard";
 import WeatherDetails from "@/components/WeatherDetails";
 import PopularCities from "@/components/PopularCities";
 import { toast } from "sonner";
-import { Cloud, CloudRain, Sun, Moon, CloudSnow } from "lucide-react";
-
-const API_KEY = "demo_key"; // Users will need to replace this with their actual API key
 
 interface WeatherData {
   main: {
@@ -48,41 +44,139 @@ interface ForecastData {
   }>;
 }
 
-const fetchWeather = async (city: string): Promise<WeatherData> => {
-  const response = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric`
-  );
-  if (!response.ok) {
-    throw new Error("Weather data not found");
+// Mock weather data for Indian cities
+const mockWeatherData: { [key: string]: WeatherData } = {
+  "mumbai": {
+    main: { temp: 32, feels_like: 36, humidity: 78, pressure: 1012 },
+    weather: [{ main: "Clouds", description: "partly cloudy", icon: "02d" }],
+    wind: { speed: 3.5 },
+    name: "Mumbai",
+    sys: { country: "IN" }
+  },
+  "delhi": {
+    main: { temp: 28, feels_like: 31, humidity: 65, pressure: 1015 },
+    weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
+    wind: { speed: 2.8 },
+    name: "Delhi",
+    sys: { country: "IN" }
+  },
+  "bangalore": {
+    main: { temp: 25, feels_like: 27, humidity: 72, pressure: 1018 },
+    weather: [{ main: "Rain", description: "light rain", icon: "10d" }],
+    wind: { speed: 4.2 },
+    name: "Bangalore",
+    sys: { country: "IN" }
+  },
+  "chennai": {
+    main: { temp: 34, feels_like: 38, humidity: 82, pressure: 1010 },
+    weather: [{ main: "Clouds", description: "overcast clouds", icon: "04d" }],
+    wind: { speed: 5.1 },
+    name: "Chennai",
+    sys: { country: "IN" }
+  },
+  "kolkata": {
+    main: { temp: 30, feels_like: 34, humidity: 75, pressure: 1013 },
+    weather: [{ main: "Rain", description: "moderate rain", icon: "10d" }],
+    wind: { speed: 3.8 },
+    name: "Kolkata",
+    sys: { country: "IN" }
+  },
+  "hyderabad": {
+    main: { temp: 29, feels_like: 32, humidity: 68, pressure: 1016 },
+    weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
+    wind: { speed: 2.5 },
+    name: "Hyderabad",
+    sys: { country: "IN" }
+  },
+  "pune": {
+    main: { temp: 26, feels_like: 28, humidity: 70, pressure: 1017 },
+    weather: [{ main: "Clouds", description: "few clouds", icon: "02d" }],
+    wind: { speed: 3.2 },
+    name: "Pune",
+    sys: { country: "IN" }
+  },
+  "ahmedabad": {
+    main: { temp: 35, feels_like: 39, humidity: 60, pressure: 1011 },
+    weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
+    wind: { speed: 4.0 },
+    name: "Ahmedabad",
+    sys: { country: "IN" }
+  },
+  "jaipur": {
+    main: { temp: 31, feels_like: 34, humidity: 55, pressure: 1014 },
+    weather: [{ main: "Clouds", description: "scattered clouds", icon: "03d" }],
+    wind: { speed: 3.7 },
+    name: "Jaipur",
+    sys: { country: "IN" }
+  },
+  "surat": {
+    main: { temp: 33, feels_like: 37, humidity: 73, pressure: 1012 },
+    weather: [{ main: "Clouds", description: "broken clouds", icon: "04d" }],
+    wind: { speed: 2.9 },
+    name: "Surat",
+    sys: { country: "IN" }
   }
-  return response.json();
 };
 
-const fetchForecast = async (city: string): Promise<ForecastData> => {
-  const response = await fetch(
-    `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${API_KEY}&units=metric`
-  );
-  if (!response.ok) {
-    throw new Error("Forecast data not found");
+// Generate mock forecast data
+const generateMockForecast = (baseTemp: number): ForecastData => {
+  const forecast = [];
+  const weatherConditions = ["Clear", "Clouds", "Rain"];
+  const descriptions = {
+    "Clear": "clear sky",
+    "Clouds": "few clouds", 
+    "Rain": "light rain"
+  };
+  
+  for (let i = 1; i <= 5; i++) {
+    const condition = weatherConditions[Math.floor(Math.random() * weatherConditions.length)];
+    forecast.push({
+      dt: Date.now() / 1000 + (i * 24 * 60 * 60),
+      main: {
+        temp: baseTemp + Math.floor(Math.random() * 6) - 3
+      },
+      weather: [{
+        main: condition,
+        description: descriptions[condition as keyof typeof descriptions],
+        icon: "01d"
+      }]
+    });
   }
-  return response.json();
+  
+  return { list: forecast };
 };
 
 const Index = () => {
   const [city, setCity] = useState("Mumbai");
   const [searchCity, setSearchCity] = useState("");
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [forecastData, setForecastData] = useState<ForecastData | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const { data: weatherData, isLoading: weatherLoading, error: weatherError } = useQuery({
-    queryKey: ['weather', city],
-    queryFn: () => fetchWeather(city),
-    enabled: !!city,
-  });
+  const fetchWeatherData = (cityName: string) => {
+    setLoading(true);
+    
+    // Simulate API call delay
+    setTimeout(() => {
+      const normalizedCity = cityName.toLowerCase();
+      const data = mockWeatherData[normalizedCity];
+      
+      if (data) {
+        setWeatherData(data);
+        setForecastData(generateMockForecast(data.main.temp));
+        toast.success(`Weather data loaded for ${cityName}`);
+      } else {
+        toast.error("City not found. Try one of the popular cities below.");
+        setWeatherData(null);
+        setForecastData(null);
+      }
+      setLoading(false);
+    }, 500);
+  };
 
-  const { data: forecastData, isLoading: forecastLoading } = useQuery({
-    queryKey: ['forecast', city],
-    queryFn: () => fetchForecast(city),
-    enabled: !!city,
-  });
+  useEffect(() => {
+    fetchWeatherData(city);
+  }, [city]);
 
   const handleSearch = () => {
     if (searchCity.trim()) {
@@ -94,12 +188,6 @@ const Index = () => {
   const handleCitySelect = (selectedCity: string) => {
     setCity(selectedCity);
   };
-
-  useEffect(() => {
-    if (weatherError) {
-      toast.error("City not found. Please check the spelling and try again.");
-    }
-  }, [weatherError]);
 
   const getBackgroundGradient = () => {
     if (!weatherData) return "from-blue-400 to-blue-600";
@@ -122,37 +210,6 @@ const Index = () => {
     }
     return "from-blue-400 to-blue-600";
   };
-
-  if (API_KEY === "demo_key") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-400 to-pink-500 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center text-2xl font-bold text-orange-600">
-              🌤️ Weather App Setup
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-center text-gray-600">
-              To use this weather app, you need to get a free API key from OpenWeatherMap.
-            </p>
-            <div className="space-y-2">
-              <h3 className="font-semibold">Steps to get your API key:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li>Visit <a href="https://openweathermap.org/api" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">OpenWeatherMap API</a></li>
-                <li>Sign up for a free account</li>
-                <li>Get your API key</li>
-                <li>Replace "demo_key" in the code with your actual API key</li>
-              </ol>
-            </div>
-            <p className="text-xs text-gray-500 text-center">
-              The API key is free and allows 1000 calls per day
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${getBackgroundGradient()} transition-all duration-1000`}>
@@ -195,7 +252,7 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Weather Card */}
           <div className="lg:col-span-2">
-            {weatherLoading ? (
+            {loading ? (
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardContent className="p-8 text-center">
                   <div className="animate-pulse text-white">
@@ -223,12 +280,9 @@ const Index = () => {
               5-Day Forecast
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {forecastData.list
-                .filter((_, index) => index % 8 === 0)
-                .slice(0, 5)
-                .map((item, index) => (
-                  <ForecastCard key={index} forecastItem={item} />
-                ))}
+              {forecastData.list.map((item, index) => (
+                <ForecastCard key={index} forecastItem={item} />
+              ))}
             </div>
           </div>
         )}
