@@ -7,7 +7,11 @@ import WeatherCard from "@/components/WeatherCard";
 import ForecastCard from "@/components/ForecastCard";
 import WeatherDetails from "@/components/WeatherDetails";
 import PopularCities from "@/components/PopularCities";
+import LiveClock from "@/components/LiveClock";
+import WeatherFeatures from "@/components/WeatherFeatures";
 import { toast } from "sonner";
+import { weatherData } from "@/data/weatherData";
+import { generateMockForecast } from "@/utils/weatherUtils";
 
 interface WeatherData {
   main: {
@@ -44,130 +48,27 @@ interface ForecastData {
   }>;
 }
 
-// Mock weather data for Indian cities
-const mockWeatherData: { [key: string]: WeatherData } = {
-  "mumbai": {
-    main: { temp: 32, feels_like: 36, humidity: 78, pressure: 1012 },
-    weather: [{ main: "Clouds", description: "partly cloudy", icon: "02d" }],
-    wind: { speed: 3.5 },
-    name: "Mumbai",
-    sys: { country: "IN" }
-  },
-  "delhi": {
-    main: { temp: 28, feels_like: 31, humidity: 65, pressure: 1015 },
-    weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
-    wind: { speed: 2.8 },
-    name: "Delhi",
-    sys: { country: "IN" }
-  },
-  "bangalore": {
-    main: { temp: 25, feels_like: 27, humidity: 72, pressure: 1018 },
-    weather: [{ main: "Rain", description: "light rain", icon: "10d" }],
-    wind: { speed: 4.2 },
-    name: "Bangalore",
-    sys: { country: "IN" }
-  },
-  "chennai": {
-    main: { temp: 34, feels_like: 38, humidity: 82, pressure: 1010 },
-    weather: [{ main: "Clouds", description: "overcast clouds", icon: "04d" }],
-    wind: { speed: 5.1 },
-    name: "Chennai",
-    sys: { country: "IN" }
-  },
-  "kolkata": {
-    main: { temp: 30, feels_like: 34, humidity: 75, pressure: 1013 },
-    weather: [{ main: "Rain", description: "moderate rain", icon: "10d" }],
-    wind: { speed: 3.8 },
-    name: "Kolkata",
-    sys: { country: "IN" }
-  },
-  "hyderabad": {
-    main: { temp: 29, feels_like: 32, humidity: 68, pressure: 1016 },
-    weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
-    wind: { speed: 2.5 },
-    name: "Hyderabad",
-    sys: { country: "IN" }
-  },
-  "pune": {
-    main: { temp: 26, feels_like: 28, humidity: 70, pressure: 1017 },
-    weather: [{ main: "Clouds", description: "few clouds", icon: "02d" }],
-    wind: { speed: 3.2 },
-    name: "Pune",
-    sys: { country: "IN" }
-  },
-  "ahmedabad": {
-    main: { temp: 35, feels_like: 39, humidity: 60, pressure: 1011 },
-    weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
-    wind: { speed: 4.0 },
-    name: "Ahmedabad",
-    sys: { country: "IN" }
-  },
-  "jaipur": {
-    main: { temp: 31, feels_like: 34, humidity: 55, pressure: 1014 },
-    weather: [{ main: "Clouds", description: "scattered clouds", icon: "03d" }],
-    wind: { speed: 3.7 },
-    name: "Jaipur",
-    sys: { country: "IN" }
-  },
-  "surat": {
-    main: { temp: 33, feels_like: 37, humidity: 73, pressure: 1012 },
-    weather: [{ main: "Clouds", description: "broken clouds", icon: "04d" }],
-    wind: { speed: 2.9 },
-    name: "Surat",
-    sys: { country: "IN" }
-  }
-};
-
-// Generate mock forecast data
-const generateMockForecast = (baseTemp: number): ForecastData => {
-  const forecast = [];
-  const weatherConditions = ["Clear", "Clouds", "Rain"];
-  const descriptions = {
-    "Clear": "clear sky",
-    "Clouds": "few clouds", 
-    "Rain": "light rain"
-  };
-  
-  for (let i = 1; i <= 5; i++) {
-    const condition = weatherConditions[Math.floor(Math.random() * weatherConditions.length)];
-    forecast.push({
-      dt: Date.now() / 1000 + (i * 24 * 60 * 60),
-      main: {
-        temp: baseTemp + Math.floor(Math.random() * 6) - 3
-      },
-      weather: [{
-        main: condition,
-        description: descriptions[condition as keyof typeof descriptions],
-        icon: "01d"
-      }]
-    });
-  }
-  
-  return { list: forecast };
-};
-
 const Index = () => {
   const [city, setCity] = useState("Mumbai");
   const [searchCity, setSearchCity] = useState("");
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [currentWeatherData, setCurrentWeatherData] = useState<WeatherData | null>(null);
   const [forecastData, setForecastData] = useState<ForecastData | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchWeatherData = (cityName: string) => {
     setLoading(true);
     
-    // Simulate API call delay
     setTimeout(() => {
       const normalizedCity = cityName.toLowerCase();
-      const data = mockWeatherData[normalizedCity];
+      const data = weatherData[normalizedCity];
       
       if (data) {
-        setWeatherData(data);
+        setCurrentWeatherData(data);
         setForecastData(generateMockForecast(data.main.temp));
         toast.success(`Weather data loaded for ${cityName}`);
       } else {
-        toast.error("City not found. Try one of the popular cities below.");
-        setWeatherData(null);
+        toast.error("City not found. Try one of the available cities.");
+        setCurrentWeatherData(null);
         setForecastData(null);
       }
       setLoading(false);
@@ -190,55 +91,53 @@ const Index = () => {
   };
 
   const getBackgroundGradient = () => {
-    if (!weatherData) return "from-blue-400 to-blue-600";
+    if (!currentWeatherData) return "from-slate-900 via-blue-900 to-indigo-900";
     
-    const condition = weatherData.weather[0].main.toLowerCase();
+    const condition = currentWeatherData.weather[0].main.toLowerCase();
     const hour = new Date().getHours();
     const isNight = hour < 6 || hour > 18;
 
     if (condition.includes("rain") || condition.includes("drizzle")) {
-      return "from-gray-600 to-gray-800";
+      return "from-slate-800 via-gray-800 to-blue-900";
     }
     if (condition.includes("cloud")) {
-      return isNight ? "from-indigo-800 to-purple-900" : "from-gray-400 to-gray-600";
+      return isNight ? "from-indigo-900 via-purple-900 to-slate-900" : "from-slate-600 via-blue-700 to-indigo-800";
     }
     if (condition.includes("clear")) {
-      return isNight ? "from-indigo-900 to-purple-800" : "from-orange-400 to-yellow-500";
+      return isNight ? "from-indigo-900 via-purple-800 to-slate-900" : "from-blue-600 via-indigo-700 to-purple-800";
     }
-    if (condition.includes("snow")) {
-      return "from-blue-200 to-blue-400";
-    }
-    return "from-blue-400 to-blue-600";
+    return "from-slate-900 via-blue-900 to-indigo-900";
   };
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${getBackgroundGradient()} transition-all duration-1000`}>
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+        {/* Header with Live Clock */}
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-2">
-            🌤️ Weather India
+            🌤️ Weather India Pro
           </h1>
-          <p className="text-white/80 text-lg">
-            Live Weather Updates for Indian Cities
+          <p className="text-white/80 text-lg mb-4">
+            Complete Weather Solution for Indian Cities
           </p>
+          <LiveClock />
         </div>
 
         {/* Search Section */}
-        <Card className="mb-8 bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="mb-8 bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
           <CardContent className="p-6">
             <div className="flex gap-4 mb-4">
               <Input
                 type="text"
-                placeholder="Enter city name (e.g., Mumbai, Delhi, Bangalore)"
+                placeholder="Search any Indian city or district..."
                 value={searchCity}
                 onChange={(e) => setSearchCity(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1 bg-white/20 border-white/30 text-white placeholder:text-white/60"
+                className="flex-1 bg-white/20 border-white/30 text-white placeholder:text-white/60 focus:bg-white/30"
               />
               <Button 
                 onClick={handleSearch}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
               >
                 Search
               </Button>
@@ -248,27 +147,30 @@ const Index = () => {
           </CardContent>
         </Card>
 
+        {/* Weather Features */}
+        <WeatherFeatures />
+
         {/* Weather Display */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Main Weather Card */}
           <div className="lg:col-span-2">
             {loading ? (
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+              <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
                 <CardContent className="p-8 text-center">
                   <div className="animate-pulse text-white">
                     Loading weather data...
                   </div>
                 </CardContent>
               </Card>
-            ) : weatherData ? (
-              <WeatherCard weatherData={weatherData} />
+            ) : currentWeatherData ? (
+              <WeatherCard weatherData={currentWeatherData} />
             ) : null}
           </div>
 
           {/* Weather Details */}
           <div>
-            {weatherData && (
-              <WeatherDetails weatherData={weatherData} />
+            {currentWeatherData && (
+              <WeatherDetails weatherData={currentWeatherData} />
             )}
           </div>
         </div>
@@ -277,7 +179,7 @@ const Index = () => {
         {forecastData && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-white mb-4">
-              5-Day Forecast
+              5-Day Weather Forecast
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {forecastData.list.map((item, index) => (
